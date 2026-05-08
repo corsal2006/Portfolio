@@ -1,0 +1,63 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "src/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "screenshots/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "data/profile.json",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "favicon.svg",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "resume.pdf",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1.js"
+    },
+    {
+      "src": "/src/(.*)",
+      "dest": "/src/$1"
+    },
+    {
+      "src": "/screenshots/(.*)",
+      "dest": "/screenshots/$1"
+    },
+    {
+      "src": "/data/(.*)",
+      "dest": "/data/$1"
+    },
+    {
+      "src": "/favicon.svg",
+      "dest": "/favicon.svg"
+    },
+    {
+      "src": "/resume.pdf",
+      "dest": "/resume.pdf"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
