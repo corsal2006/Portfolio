@@ -1,13 +1,17 @@
 import http from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
+import {
+  hasBlobStore,
+  ownerCode as expectedOwnerCode,
+  readProfile,
+  saveUpload,
+  writeProfile
+} from "./lib/portfolio-storage.mjs";
 
 const root = resolve(process.cwd());
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
-const ownerCode = process.env.OWNER_CODE || "23";
-const profilePath = join(root, "data", "profile.json");
 
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -18,15 +22,17 @@ const types = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
   ".svg": "image/svg+xml",
-  ".webp": "image/webp"
+  ".webp": "image/webp",
+  ".pdf": "application/pdf"
 };
 
 async function readJsonBody(request) {
   let body = "";
   for await (const chunk of request) {
     body += chunk;
-    if (body.length > 1_000_000) {
+    if (body.length > 4_500_000) {
       throw new Error("Request body too large");
     }
   }
@@ -44,8 +50,8 @@ function sendJson(response, status, payload) {
 async function handleProfileApi(request, response) {
   if (request.method === "GET") {
     try {
-      const profile = JSON.parse(await readFile(profilePath, "utf8"));
-      sendJson(response, 200, { profile });
+      const profile = await readProfile(root);
+      sendJson(response, 200, { profile, permanent: hasBlobStore() || !process.env.VERCEL });
     } catch (error) {
       if (error.code === "ENOENT") {
         sendJson(response, 200, { profile: null });
@@ -57,7 +63,7 @@ async function handleProfileApi(request, response) {
   }
 
   if (request.method === "PUT") {
-    if (request.headers["x-owner-code"] !== ownerCode) {
+    if (request.headers["x-owner-code"] !== expectedOwnerCode()) {
       sendJson(response, 401, { error: "Invalid owner code" });
       return;
     }
@@ -68,11 +74,10 @@ async function handleProfileApi(request, response) {
         sendJson(response, 400, { error: "Invalid profile payload" });
         return;
       }
-      await mkdir(join(root, "data"), { recursive: true });
-      await writeFile(profilePath, JSON.stringify(body.profile, null, 2), "utf8");
-      sendJson(response, 200, { ok: true });
-    } catch {
-      sendJson(response, 500, { error: "Could not save profile" });
+      const result = await writeProfile(body.profile, root);
+      sendJson(response, 200, { ok: true, storage: result.storage });
+    } catch (error) {
+      sendJson(response, 500, { error: error.message || "Could not save profile" });
     }
     return;
   }
@@ -80,10 +85,34 @@ async function handleProfileApi(request, response) {
   sendJson(response, 405, { error: "Method not allowed" });
 }
 
+async function handleUploadApi(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  if (request.headers["x-owner-code"] !== expectedOwnerCode()) {
+    sendJson(response, 401, { error: "Invalid owner code" });
+    return;
+  }
+
+  try {
+    const body = await readJsonBody(request);
+    const result = await saveUpload(body, root);
+    sendJson(response, 200, { ok: true, ...result });
+  } catch (error) {
+    sendJson(response, 400, { error: error.message || "Could not upload file" });
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
   if (url.pathname === "/api/profile") {
     await handleProfileApi(request, response);
+    return;
+  }
+  if (url.pathname === "/api/upload") {
+    await handleUploadApi(request, response);
     return;
   }
 

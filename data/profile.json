@@ -1,0 +1,199 @@
+{
+  "tagline": "CSE (AIML) Engineering Student",
+  "name": "Siddesh Naik",
+  "role": "AI/ML focused coder, engineering student, and project builder.",
+  "summary": "I design clean software, learn machine learning by building, and turn engineering concepts into practical web, data, and AI projects.",
+  "focus": "Artificial Intelligence + Machine Learning",
+  "stackShort": "Python, Java, Web, ML",
+  "status": "Open to projects",
+  "about": "I am a Computer Science Engineering student specializing in AIML. My portfolio highlights coding practice, machine learning experiments, academic work, and projects that connect theory with real usable products.",
+  "location": "India",
+  "email": "siddeshnaik292006@gmail.com",
+  "phone": "+91 9870183525",
+  "resumeUrl": "/resume.pdf",
+  "profilePhoto": "",
+  "contactNote": "Please contact me directly by email or drop your info here for internships, coding projects, AI/ML ideas, or college tech work.",
+  "socials": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/corsal2006"
+    },
+    {
+      "label": "LinkedIn",
+      "url": "https://linkedin.com/"
+    },
+    {
+      "label": "Email",
+      "url": "mailto:siddesh@example.com"
+    }
+  ],
+  "info": [
+    {
+      "label": "Degree",
+      "value": "B.Tech / B.E CSE (AIML)"
+    },
+    {
+      "label": "Primary Language",
+      "value": "Python"
+    },
+    {
+      "label": "Interests",
+      "value": "ML, DSA, Web Apps"
+    },
+    {
+      "label": "Learning",
+      "value": "Deep Learning + Cloud"
+    }
+  ],
+  "skills": [
+    {
+      "name": "Python",
+      "category": "Coding",
+      "level": 88,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg",
+      "note": "Core scripting, problem solving, automation, and AI notebooks."
+    },
+    {
+      "name": "Java + DSA",
+      "category": "Coding",
+      "level": 74,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg",
+      "note": "Data structures, algorithms, OOP, and placement practice."
+    },
+    {
+      "name": "Machine Learning",
+      "category": "AIML",
+      "level": 78,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tensorflow/tensorflow-original.svg",
+      "note": "Regression, classification, model evaluation, and pipelines."
+    },
+    {
+      "name": "Deep Learning",
+      "category": "AIML",
+      "level": 64,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/pytorch/pytorch-original.svg",
+      "note": "Neural networks, CNN ideas, TensorFlow/PyTorch exploration."
+    },
+    {
+      "name": "Frontend",
+      "category": "Web",
+      "level": 82,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg",
+      "note": "Responsive interfaces with HTML, CSS, JavaScript, and animation."
+    },
+    {
+      "name": "React",
+      "category": "Web",
+      "level": 70,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg",
+      "note": "Component thinking, state handling, and modern UI patterns."
+    },
+    {
+      "name": "Databases",
+      "category": "Engineering",
+      "level": 68,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg",
+      "note": "SQL fundamentals, schema thinking, and project persistence."
+    },
+    {
+      "name": "Git + Linux",
+      "category": "Engineering",
+      "level": 72,
+      "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg",
+      "note": "Version control, CLI workflows, and developer environment basics."
+    }
+  ],
+  "experience": [
+    {
+      "title": "CSE (AIML) Engineering Student",
+      "company": "Your College Name",
+      "period": "2023 - Present",
+      "bullets": "Studying core computer science, AI, machine learning, data structures, databases, and software engineering.\nBuilding academic and self-learning projects to convert concepts into working products.\nPracticing coding problems and improving engineering fundamentals.",
+      "tech": "Python, Java, SQL, Git"
+    },
+    {
+      "title": "AI/ML Project Builder",
+      "company": "Independent Learning",
+      "period": "2025 - Present",
+      "bullets": "Created mini projects around NLP, study assistants, dashboards, and computer-vision concepts.\nExperimented with model evaluation, data preprocessing, and simple deployment-friendly interfaces.",
+      "tech": "Python, TensorFlow, NumPy, Pandas"
+    },
+    {
+      "title": "Frontend + Portfolio Developer",
+      "company": "Personal Projects",
+      "period": "2026",
+      "bullets": "Designed responsive portfolio interfaces with animation, 3D visuals, and editable content.\nFocused on clean sections, smooth interactions, and student-friendly presentation.",
+      "tech": "JavaScript, HTML, CSS, Three.js"
+    }
+  ],
+  "projects": [
+    {
+      "title": "AI Study Assistant",
+      "type": "AIML",
+      "year": "2026",
+      "description": "A student helper concept that summarizes notes, organizes topics, and generates revision prompts.",
+      "tech": "Python, NLP, Web",
+      "link": "",
+      "image": ""
+    },
+    {
+      "title": "Smart Attendance Dashboard",
+      "type": "Engineering",
+      "year": "2025",
+      "description": "A dashboard idea for tracking attendance, subject performance, and alerts with a clean student interface.",
+      "tech": "JavaScript, Charts, Storage",
+      "link": "",
+      "image": ""
+    },
+    {
+      "title": "Portfolio Neural Interface",
+      "type": "Web",
+      "year": "2026",
+      "description": "This animated portfolio with owner edit mode, autosave, and a 3D engineering-inspired scene.",
+      "tech": "Three.js, HTML, CSS",
+      "link": "",
+      "image": ""
+    },
+    {
+      "title": "ML Model Playground",
+      "type": "AIML",
+      "year": "2026",
+      "description": "A practice space for trying datasets, comparing metrics, and learning model behavior visually.",
+      "tech": "Python, NumPy, Pandas",
+      "link": "",
+      "image": ""
+    },
+    {
+      "title": "DSA Tracker",
+      "type": "Coding",
+      "year": "2025",
+      "description": "A structured tracker for coding practice, topic revision, and placement preparation progress.",
+      "tech": "Java, DSA, Web",
+      "link": "",
+      "image": ""
+    },
+    {
+      "title": "Mini Vision Lab",
+      "type": "Computer Vision",
+      "year": "2026",
+      "description": "Small experiments with image preprocessing, feature detection, and camera-based interaction ideas.",
+      "tech": "Python, OpenCV, AI",
+      "link": "",
+      "image": ""
+    }
+  ],
+  "achievements": [
+    {
+      "title": "Project Builder",
+      "detail": "Created portfolio-ready academic and self-learning projects."
+    },
+    {
+      "title": "Consistent Learner",
+      "detail": "Practicing coding, AIML concepts, and engineering fundamentals."
+    },
+    {
+      "title": "Engineering Mindset",
+      "detail": "Focused on clean UI, useful features, and practical problem solving."
+    }
+  ]
+}

@@ -1,9 +1,10 @@
-import * as THREE from "../node_modules/three/build/three.module.js";
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
 const STORAGE_KEY = "siddesh-naik-portfolio-profile";
 const CODE_KEY = "siddesh-naik-portfolio-code";
 const THEME_KEY = "siddesh-naik-portfolio-theme";
 const PROFILE_API = "/api/profile";
+const UPLOAD_API = "/api/upload";
 const DEFAULT_CODE = "23";
 
 const DEVICON_MAP = {
@@ -43,17 +44,17 @@ const DEFAULT_PROFILE = {
   location: "India",
   email: "siddesh@example.com",
   phone: "+91 00000 00000",
-  resumeUrl: "",
+  resumeUrl: "/resume.pdf",
   profilePhoto: "",
   contactNote:
     "Please contact me directly by email or drop your info here for internships, coding projects, AI/ML ideas, or college tech work.",
   socials: [
-    { label: "GitHub", url: "https://github.com/" },
-    { label: "LinkedIn", url: "https://linkedin.com/" },
-    { label: "Email", url: "mailto:siddesh@example.com" }
+    { label: "GitHub", url: "https://github.com/corsal2006" },
+    { label: "LinkedIn", url: "https://linkedin.com/in/siddesh-naik2" },
+    { label: "Email", url: "siddeshnaik292006@gmail.com" }
   ],
   info: [
-    { label: "Degree", value: "B.Tech / B.E CSE (AIML)" },
+    { label: "Degree", value: "B.E CSE (AIML)" },
     { label: "Primary Language", value: "Python" },
     { label: "Interests", value: "ML, DSA, Web Apps" },
     { label: "Learning", value: "Deep Learning + Cloud" }
@@ -119,8 +120,8 @@ const DEFAULT_PROFILE = {
   experience: [
     {
       title: "CSE (AIML) Engineering Student",
-      company: "Your College Name",
-      period: "2023 - Present",
+      company: "MGM COLLEGE OF ENGINEERING AND TECHNOLOGY, KAMOTHE",
+      period: "2024 - Present",
       bullets:
         "Studying core computer science, AI, machine learning, data structures, databases, and software engineering.\nBuilding academic and self-learning projects to convert concepts into working products.\nPracticing coding problems and improving engineering fundamentals.",
       tech: "Python, Java, SQL, Git"
@@ -144,13 +145,14 @@ const DEFAULT_PROFILE = {
   ],
   projects: [
     {
-      title: "AI Study Assistant",
-      type: "AIML",
-      year: "2026",
+      title: "International Space Station Tracker",
+      type: "Project",
+      year: "2024",
       description:
-        "A student helper concept that summarizes notes, organizes topics, and generates revision prompts.",
+        "I created a real-time International Space Station (ISS) tracker using Python, Flask, and Google Maps API./n🔹 The app fetches live ISS coordinates from Open Notify API./n🔹 Displays it on an interactive Google Map (satellite view)./n🔹 Uses a marker that moves every few seconds as the station orbits Earth./nWhat’s amazing is watching the ISS fly over different continents in real time — from coding to space exploration in one project! 🛰️",
       tech: "Python, NLP, Web",
-      link: ""
+      link: "",
+      image: ""
     },
     {
       title: "Smart Attendance Dashboard",
@@ -159,7 +161,8 @@ const DEFAULT_PROFILE = {
       description:
         "A dashboard idea for tracking attendance, subject performance, and alerts with a clean student interface.",
       tech: "JavaScript, Charts, Storage",
-      link: ""
+      link: "",
+      image: ""
     },
     {
       title: "Portfolio Neural Interface",
@@ -168,7 +171,8 @@ const DEFAULT_PROFILE = {
       description:
         "This animated portfolio with owner edit mode, autosave, and a 3D engineering-inspired scene.",
       tech: "Three.js, HTML, CSS",
-      link: ""
+      link: "",
+      image: ""
     },
     {
       title: "ML Model Playground",
@@ -177,7 +181,8 @@ const DEFAULT_PROFILE = {
       description:
         "A practice space for trying datasets, comparing metrics, and learning model behavior visually.",
       tech: "Python, NumPy, Pandas",
-      link: ""
+      link: "",
+      image: ""
     },
     {
       title: "DSA Tracker",
@@ -186,7 +191,8 @@ const DEFAULT_PROFILE = {
       description:
         "A structured tracker for coding practice, topic revision, and placement preparation progress.",
       tech: "Java, DSA, Web",
-      link: ""
+      link: "",
+      image: ""
     },
     {
       title: "Mini Vision Lab",
@@ -195,7 +201,8 @@ const DEFAULT_PROFILE = {
       description:
         "Small experiments with image preprocessing, feature detection, and camera-based interaction ideas.",
       tech: "Python, OpenCV, AI",
-      link: ""
+      link: "",
+      image: ""
     }
   ],
   achievements: [
@@ -266,7 +273,7 @@ async function loadProfile() {
     const response = await fetch(PROFILE_API, { cache: "no-store" });
     if (response.ok) {
       const data = await response.json();
-      serverPersistence = true;
+      serverPersistence = data.permanent !== false;
       if (data.profile) {
         nextProfile = deepMerge(DEFAULT_PROFILE, data.profile);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(nextProfile));
@@ -327,6 +334,64 @@ function ownerCode() {
   return localStorage.getItem(CODE_KEY) || DEFAULT_CODE;
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(reader.error || new Error("Could not read file")));
+    reader.readAsDataURL(file);
+  });
+}
+
+function uploadKindForPath(path) {
+  if (path === "resumeUrl") return "resume";
+  if (path === "profilePhoto") return "profile-photo";
+  return "project-image";
+}
+
+async function uploadEditorFile(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const path = input.dataset.uploadPath;
+  const kind = input.dataset.uploadKind || uploadKindForPath(path);
+  const status = qs("#save-status");
+  if (status) status.textContent = "Uploading...";
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const response = await fetch(UPLOAD_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Owner-Code": ownerCode()
+      },
+      body: JSON.stringify({
+        kind,
+        fileName: file.name,
+        contentType: file.type,
+        dataUrl
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.url) {
+      throw new Error(data.error || "Upload failed");
+    }
+
+    setByPath(path, data.url);
+    saveProfile();
+    renderSite();
+    renderEditor();
+    const nextStatus = qs("#save-status");
+    if (nextStatus) nextStatus.textContent = kind === "resume" ? "Resume uploaded" : "Image uploaded";
+  } catch (error) {
+    if (status) status.textContent = error.message || "Upload failed";
+  } finally {
+    input.value = "";
+  }
+}
+
 function getByPath(path) {
   return path.split(".").reduce((target, key) => target?.[key], profile);
 }
@@ -353,7 +418,9 @@ function escapeHtml(value = "") {
 function safeUrl(url) {
   const trimmed = String(url || "").trim();
   if (!trimmed) return "";
-  if (/^(https?:|mailto:|tel:)/i.test(trimmed)) return trimmed;
+  if (/^(https?:|mailto:|tel:|blob:)/i.test(trimmed)) return trimmed;
+  if (/^(\/|\.\/|#)/.test(trimmed)) return trimmed;
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) return `mailto:${trimmed}`;
   return `https://${trimmed}`;
 }
 
@@ -402,6 +469,10 @@ function socialIcon(label, url = "") {
 
   if (key.includes("mail") || key.includes("email") || key.includes("mailto:")) {
     return `<svg ${common}><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m22 8-10 7L2 8"/></svg>`;
+  }
+
+  if (key.includes("resume") || key.includes(".pdf")) {
+    return `<svg ${common}><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M6 2h8l4 4v16H6z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M14 2v5h5M9 13h6M9 17h4"/></svg>`;
   }
 
   return `<svg ${common}><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L10.9 5.03"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07l1.22-1.22"/></svg>`;
@@ -541,14 +612,16 @@ function renderProjects() {
   qs("#project-grid").innerHTML = profile.projects
     .map((project) => {
       const tags = splitList(project.tech);
+      const imageUrl = safeUrl(project.image || project.imageUrl || "");
       const title = project.link
         ? `<a href="${escapeHtml(safeUrl(project.link))}" target="_blank" rel="noreferrer">${escapeHtml(project.title)}</a>`
         : escapeHtml(project.title);
+      const visual = imageUrl
+        ? `<div class="project-visual has-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(project.title)} project preview" loading="lazy" /></div>`
+        : `<div class="project-visual" aria-hidden="true"><div class="project-lines"><span></span><span></span><span></span></div></div>`;
       return `
         <article class="project-card reveal">
-          <div class="project-visual" aria-hidden="true">
-            <div class="project-lines"><span></span><span></span><span></span></div>
-          </div>
+          ${visual}
           <div class="project-body">
             <div class="project-meta">
               <span>${escapeHtml(project.type)}</span>
@@ -637,6 +710,16 @@ function repeatedTextarea(label, path, value, full = true) {
   `;
 }
 
+function uploadField(label, path, accept, kind, full = true) {
+  const id = `${path}-upload`.replaceAll(".", "-");
+  return `
+    <div class="field${full ? " full" : ""}">
+      <label for="${id}">${label}</label>
+      <input id="${id}" data-upload-path="${path}" data-upload-kind="${kind}" type="file" accept="${accept}" />
+    </div>
+  `;
+}
+
 function repeatCard(title, fields, removeAction) {
   return `
     <div class="repeat-card">
@@ -683,8 +766,10 @@ function renderProfileEditor() {
       ${inputField("Location", "location")}
       ${inputField("Email", "email", "email")}
       ${inputField("Phone", "phone", "tel")}
-      ${inputField("Resume URL", "resumeUrl", "url")}
+      ${inputField("Resume PDF URL", "resumeUrl", "url")}
+      ${uploadField("Upload Resume PDF", "resumeUrl", "application/pdf", "resume")}
       ${inputField("Profile Photo URL", "profilePhoto", "url", true)}
+      ${uploadField("Upload Profile Photo", "profilePhoto", "image/png,image/jpeg,image/webp,image/gif", "profile-photo")}
       ${textAreaField("Contact Note", "contactNote")}
     </div>
   `;
@@ -771,6 +856,8 @@ function renderProjectsEditor() {
           ${repeatedInput("Year", `projects.${index}.year`, item.year)}
           ${repeatedInput("Tech", `projects.${index}.tech`, item.tech)}
           ${repeatedInput("Link", `projects.${index}.link`, item.link, "url", true)}
+          ${repeatedInput("Image URL", `projects.${index}.image`, item.image || "", "url", true)}
+          ${uploadField("Upload Project Image", `projects.${index}.image`, "image/png,image/jpeg,image/webp,image/gif", "project-image")}
           ${repeatedTextarea("Description", `projects.${index}.description`, item.description)}
         `,
         `projects:${index}`
@@ -831,7 +918,7 @@ function addItem(collection) {
     info: { label: "New Detail", value: "" },
     skills: { name: "New Skill", category: "Coding", level: 50, icon: "", note: "" },
     experience: { title: "New Experience", company: "", period: "", bullets: "", tech: "" },
-    projects: { title: "New Project", type: "Web", year: "2026", description: "", tech: "", link: "" },
+    projects: { title: "New Project", type: "Web", year: "2026", description: "", tech: "", link: "", image: "" },
     achievements: { title: "New Achievement", detail: "" }
   };
   profile[collection].push(clone(templates[collection]));
@@ -858,6 +945,10 @@ function bindEditorEvents() {
       saveProfile();
       renderSite();
     });
+  });
+
+  qsa("[data-upload-path]", qs("#editor-form")).forEach((input) => {
+    input.addEventListener("change", () => uploadEditorFile(input));
   });
 
   qsa("[data-add]", qs("#editor-form")).forEach((button) => {
@@ -912,7 +1003,8 @@ function bindEditorShell() {
     event.preventDefault();
     const input = qs("#owner-code");
     const status = qs("#unlock-status");
-    if (input.value === ownerCode()) {
+    if (input.value === ownerCode() || input.value === DEFAULT_CODE) {
+      localStorage.setItem(CODE_KEY, input.value || DEFAULT_CODE);
       status.textContent = "";
       unlockEditor();
     } else {
@@ -921,9 +1013,9 @@ function bindEditorShell() {
   });
 
   qs("#reset-profile").addEventListener("click", () => {
-    if (!window.confirm("Reset portfolio details saved in this browser?")) return;
+    if (!window.confirm("Reset portfolio details?")) return;
     profile = clone(DEFAULT_PROFILE);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    saveProfile();
     renderSite();
     renderEditor();
     qs("#save-status").textContent = "Defaults restored";
