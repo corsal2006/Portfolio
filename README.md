@@ -1,6 +1,6 @@
 # Siddesh Naik 3D Editable Portfolio
 
-A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, Vercel Functions, and Vercel Blob. The site includes a hidden owner editor that can update portfolio text, links, skills, experience, projects, project images, profile photo, and resume PDF.
+A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, Firebase Firestore, Firebase Storage, and Vercel. The site includes a hidden owner editor that can update portfolio text, links, skills, experience, projects, project images, profile photo, and resume PDF.
 
 ![Desktop preview](screenshots/desktop.png)
 
@@ -13,19 +13,21 @@ A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, 
 - Owner edit mode protected by a special code.
 - Editable resume PDF link with upload support.
 - Editable project cards with project image upload support.
-- Persistent deployed edits using Vercel Blob.
+- Persistent deployed edits using Firebase Firestore.
+- Uploaded images and resume files using Firebase Storage.
 - Local JSON fallback for development.
 
 ## How Permanent Editing Works
 
 When deployed on Vercel, the portfolio saves data outside the codebase:
 
-- Portfolio content is saved as `portfolio/profile.json` in Vercel Blob.
-- Uploaded files are saved under `portfolio/uploads/...` in Vercel Blob.
-- Visitors load the same saved portfolio data from the API.
+- Portfolio content is saved in the Firestore document `portfolio/profile`.
+- Uploaded files are saved under `portfolio/uploads/...` in Firebase Storage.
+- Visitors load the same saved portfolio data from Firestore.
+- Open visitor tabs listen for Firestore updates and refresh the displayed content live.
 - Changes made from owner mode are visible to everyone, even after redeploys.
 
-Important: permanent deployed edits require a connected Vercel Blob store and the `BLOB_READ_WRITE_TOKEN` environment variable. Without that token, Vercel serverless functions cannot permanently write data.
+Important: permanent deployed edits require Firebase Firestore and Storage rules that allow this site to read the profile and save owner-mode edits.
 
 ## Owner Mode
 
@@ -36,7 +38,35 @@ Important: permanent deployed edits require a connected Vercel Blob store and th
 5. Edit any field.
 6. Changes autosave.
 
-For production, set `OWNER_CODE` in Vercel environment variables if you want a code other than `23`.
+For production, update `DEFAULT_CODE` in `src/main.js` if you want a code other than `23`.
+
+## Firebase Rules
+
+Use Firebase console rules that match how much control you want. For a simple editable public portfolio, this permissive setup makes the live editor work immediately:
+
+```text
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /portfolio/profile {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+```text
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /portfolio/uploads/{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+Because this app saves directly from the browser, the owner code is a UI lock, not a server secret. For stronger protection, add Firebase Auth later and restrict writes to your signed-in account.
 
 ## Run Locally
 
@@ -51,18 +81,19 @@ Open:
 http://127.0.0.1:4173
 ```
 
-Local edits are saved to `data/profile.json` through the local API.
+Local edits use the same Firebase project when Firestore is reachable. If Firebase is blocked locally, edits temporarily fall back to this browser.
 
 ## Deploy With Permanent Edits On Vercel
 
 1. Push the project to GitHub.
 2. Import the GitHub repo into Vercel.
-3. In Vercel, create or connect a Vercel Blob store.
-4. Make sure Vercel adds `BLOB_READ_WRITE_TOKEN` to the project environment variables.
-5. Optional: add `OWNER_CODE` to change the edit code.
-6. Redeploy the project after adding environment variables.
-7. Open the live site, unlock owner mode, edit content, and save.
-8. Open the site in another browser/device to confirm everyone sees the saved changes.
+3. Create a Firestore database in the Firebase project `portfolio-b7cba`.
+4. Enable Firebase Storage in the same project.
+5. Add Firestore and Storage rules that allow the portfolio profile to be read and updated.
+6. In Vercel Deployment Protection, disable Vercel Authentication for the production site if visitors should access it publicly.
+7. Redeploy the project.
+8. Open the live site, unlock owner mode, edit content, and wait for `Saved for everyone`.
+9. Open the site in another browser/device to confirm everyone sees the saved changes.
 
 ## Make This Your Own Portfolio
 
@@ -116,35 +147,22 @@ npm run dev
 
 Click the lock button, enter `23`, and update your content from the browser.
 
-7. Deploy to Vercel and connect Vercel Blob.
+7. Deploy to Vercel and configure Firebase Firestore/Storage.
 
 This is the key step that makes browser edits permanent for everyone.
 
-8. Change the owner code for your own deployment.
-
-In Vercel project settings, add:
-
-```text
-OWNER_CODE=your-secret-code
-```
-
-Then redeploy.
+8. Change the owner code for your own deployment in `src/main.js`.
 
 ## Project Structure
 
 ```text
-api/
-  profile.js        Vercel API for reading and saving portfolio JSON
-  upload.js         Vercel API for resume and image uploads
 data/
   profile.json      Default local portfolio data
-lib/
-  portfolio-storage.mjs
 screenshots/
   desktop.png
   mobile.png
 src/
-  main.js           Portfolio rendering, editor, uploads, Three.js scene
+  main.js           Portfolio rendering, Firestore saves, Firebase uploads, Three.js scene
   styles.css        UI styling
 server.mjs          Local development server
 resume.pdf          Default resume PDF
@@ -152,6 +170,6 @@ resume.pdf          Default resume PDF
 
 ## Storage Notes
 
-This project does not commit edits made from owner mode back to GitHub. Runtime edits belong in Vercel Blob so they can be changed after deployment and shared with all visitors immediately.
+This project does not commit edits made from owner mode back to GitHub. Runtime edits belong in Firebase Firestore and Firebase Storage so they can be changed after deployment and shared with all visitors immediately.
 
-GitHub stores the source code. Vercel Blob stores live portfolio edits and uploaded media.
+GitHub stores the source code. Firebase stores live portfolio edits and uploaded media.

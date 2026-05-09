@@ -1,11 +1,53 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  serverTimestamp,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+import {
+  getDownloadURL,
+  getStorage,
+  ref as storageRef,
+  uploadBytes
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-storage.js";
 
 const STORAGE_KEY = "siddesh-naik-portfolio-profile";
 const CODE_KEY = "siddesh-naik-portfolio-code";
 const THEME_KEY = "siddesh-naik-portfolio-theme";
-const PROFILE_API = "/api/profile";
-const UPLOAD_API = "/api/upload";
 const DEFAULT_CODE = "23";
+const FIRESTORE_PROFILE_COLLECTION = "portfolio";
+const FIRESTORE_PROFILE_DOCUMENT = "profile";
+const FIREBASE_UPLOAD_PREFIX = "portfolio/uploads";
+const MAX_UPLOAD_BYTES = 3_000_000;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAy2YpL6E5eqYvaOFQbx5jOE5SrUorOtIU",
+  authDomain: "portfolio-b7cba.firebaseapp.com",
+  projectId: "portfolio-b7cba",
+  storageBucket: "portfolio-b7cba.firebasestorage.app",
+  messagingSenderId: "33013995826",
+  appId: "1:33013995826:web:a923e634c2d7601b4e1f2b"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const firestoreDb = getFirestore(firebaseApp);
+const firebaseStorage = getStorage(firebaseApp);
+const profileDoc = doc(firestoreDb, FIRESTORE_PROFILE_COLLECTION, FIRESTORE_PROFILE_DOCUMENT);
+
+const imageTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const pdfTypes = new Set(["application/pdf"]);
+const typeByExtension = new Map([
+  [".gif", "image/gif"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".pdf", "application/pdf"],
+  [".png", "image/png"],
+  [".webp", "image/webp"]
+]);
 
 const DEVICON_MAP = {
   ai: "",
@@ -221,15 +263,15 @@ const DEFAULT_PROFILE = {
   ]
 };
 
-const editorSections = ["Profile", "Links", "Info", "Stack", "Experience", "Projects", "Wins", "Access"];
+const editorSections = ["Profile", "Links", "Info", "Stack", "Experience", "Projects", "Wins"];
 
 let profile = clone(DEFAULT_PROFILE);
 let activeSkillCategory = "All";
 let activeEditorSection = "Profile";
 let isUnlocked = false;
 let saveTimer = 0;
-let serverSaveTimer = 0;
-let serverPersistence = false;
+let sharedSaveTimer = 0;
+let sharedStorageAvailable = false;
 let keyCount = 0;
 let revealObserver;
 
@@ -268,79 +310,111 @@ function loadLocalProfile() {
 
 async function loadProfile() {
   try {
-    const response = await fetch(PROFILE_API, {
-      cache: "no-store"
-    });
+    const snapshot = await getDoc(profileDoc);
+    sharedStorageAvailable = true;
 
-    if (response.ok) {
-      const data = await response.json();
-
-      serverPersistence = data.permanent !== false;
-
-      if (data.profile) {
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(data.profile)
-        );
-
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data?.profile) {
+        localStorage.removeItem(STORAGE_KEY);
         return deepMerge(DEFAULT_PROFILE, data.profile);
       }
     }
+
+    if (localStorage.getItem(STORAGE_KEY)) {
+      return loadLocalProfile();
+    }
+
+    return clone(DEFAULT_PROFILE);
   } catch {
-    serverPersistence = false;
+    sharedStorageAvailable = false;
   }
 
   return loadLocalProfile();
 }
 
-function saveProfile() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+function startLiveProfileUpdates() {
+  try {
+    onSnapshot(
+      profileDoc,
+      (snapshot) => {
+        sharedStorageAvailable = true;
 
+        if (!snapshot.exists() || isUnlocked) {
+          return;
+        }
+
+        const data = snapshot.data();
+        if (!data?.profile) {
+          return;
+        }
+
+        profile = deepMerge(DEFAULT_PROFILE, data.profile);
+        localStorage.removeItem(STORAGE_KEY);
+        renderSite();
+      },
+      () => {
+        sharedStorageAvailable = false;
+      }
+    );
+  } catch {
+    sharedStorageAvailable = false;
+  }
+}
+
+function saveProfile() {
   window.clearTimeout(saveTimer);
 
   saveTimer = window.setTimeout(() => {
     const status = qs("#save-status");
 
     if (status) {
-      status.textContent = serverPersistence
+      status.textContent = sharedStorageAvailable
         ? "Saving for everyone..."
         : "Saved in this browser";
     }
   }, 120);
 
-  window.clearTimeout(serverSaveTimer);
+  if (!sharedStorageAvailable) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    return;
+  }
 
-  // FORCE cloud save always
-  serverSaveTimer = window.setTimeout(async () => {
-    await saveProfileToServer();
+  window.clearTimeout(sharedSaveTimer);
+
+  sharedSaveTimer = window.setTimeout(async () => {
+    await saveProfileToFirestore();
   }, 520);
 }
 
-async function saveProfileToServer() {
+async function saveProfileToFirestore() {
   const status = qs("#save-status");
 
   try {
-    const response = await fetch(PROFILE_API, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Owner-Code": ownerCode()
+    await setDoc(
+      profileDoc,
+      {
+        profile: clone(profile),
+        updatedAt: serverTimestamp()
       },
-      body: JSON.stringify({ profile })
-    });
+      { merge: true }
+    );
 
-    if (!response.ok) {
-      throw new Error("Server save failed");
-    }
+    sharedStorageAvailable = true;
+    localStorage.removeItem(STORAGE_KEY);
 
     if (status) {
       status.textContent = `Saved for everyone ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     }
-  } catch {
-    serverPersistence = false;
+
+    return true;
+  } catch (error) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
     if (status) {
-      status.textContent = "Saved in this browser only";
+      status.textContent = `Shared save failed: ${error.message || "check Firebase rules"}`;
     }
+
+    return false;
   }
 }
 
@@ -348,19 +422,49 @@ function ownerCode() {
   return localStorage.getItem(CODE_KEY) || DEFAULT_CODE;
 }
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => resolve(reader.result));
-    reader.addEventListener("error", () => reject(reader.error || new Error("Could not read file")));
-    reader.readAsDataURL(file);
-  });
+async function verifyOwnerCode(code) {
+  return code === DEFAULT_CODE;
 }
 
 function uploadKindForPath(path) {
   if (path === "resumeUrl") return "resume";
   if (path === "profilePhoto") return "profile-photo";
   return "project-image";
+}
+
+function normalizeContentType(file) {
+  const lastDot = file.name.lastIndexOf(".");
+  const extension = lastDot >= 0 ? file.name.slice(lastDot).toLowerCase() : "";
+  return file.type || typeByExtension.get(extension) || "application/octet-stream";
+}
+
+function assertAllowedUpload(kind, file) {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error("File is too large. Keep uploads under 3 MB.");
+  }
+
+  const contentType = normalizeContentType(file);
+  const allowed = kind === "resume" ? pdfTypes : imageTypes;
+
+  if (!allowed.has(contentType)) {
+    throw new Error(kind === "resume" ? "Upload a PDF resume." : "Upload a PNG, JPG, WebP, or GIF image.");
+  }
+
+  return contentType;
+}
+
+function safeFileName(fileName, kind, contentType) {
+  const fallbackExtension = contentType === "application/pdf" ? ".pdf" : ".png";
+  const lastDot = fileName.lastIndexOf(".");
+  const extension = lastDot >= 0 ? fileName.slice(lastDot).toLowerCase() : fallbackExtension;
+  const baseName = (lastDot >= 0 ? fileName.slice(0, lastDot) : fileName)
+    .split(/[\\/]/)
+    .pop()
+    .replace(/[^a-z0-9_-]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+
+  return `${baseName || kind}-${Date.now()}${extension}`;
 }
 
 async function uploadEditorFile(input) {
@@ -373,27 +477,12 @@ async function uploadEditorFile(input) {
   if (status) status.textContent = "Uploading...";
 
   try {
-    const dataUrl = await fileToDataUrl(file);
-    const response = await fetch(UPLOAD_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Owner-Code": ownerCode()
-      },
-      body: JSON.stringify({
-        kind,
-        fileName: file.name,
-        contentType: file.type,
-        dataUrl
-      })
-    });
-    const data = await response.json().catch(() => ({}));
+    const contentType = assertAllowedUpload(kind, file);
+    const targetRef = storageRef(firebaseStorage, `${FIREBASE_UPLOAD_PREFIX}/${kind}/${safeFileName(file.name, kind, contentType)}`);
+    const snapshot = await uploadBytes(targetRef, file, { contentType });
+    const url = await getDownloadURL(snapshot.ref);
 
-    if (!response.ok || !data.url) {
-      throw new Error(data.error || "Upload failed");
-    }
-
-    setByPath(path, data.url);
+    setByPath(path, url);
     saveProfile();
     renderSite();
     renderEditor();
@@ -897,17 +986,6 @@ function renderAchievementsEditor() {
   return `<div class="repeat-list">${cards}<button class="add-button" type="button" data-add="achievements">Add Achievement</button></div>`;
 }
 
-function renderAccessEditor() {
-  return `
-    <div class="field-grid">
-      <div class="field full">
-        <label for="new-owner-code">Special Code</label>
-        <input id="new-owner-code" data-code-input type="password" value="${escapeHtml(ownerCode())}" inputmode="numeric" autocomplete="new-password" />
-      </div>
-    </div>
-  `;
-}
-
 function renderEditor() {
   renderEditorTabs();
   const form = qs("#editor-form");
@@ -918,8 +996,7 @@ function renderEditor() {
     Stack: renderSkillsEditor,
     Experience: renderExperienceEditor,
     Projects: renderProjectsEditor,
-    Wins: renderAchievementsEditor,
-    Access: renderAccessEditor
+    Wins: renderAchievementsEditor
   };
 
   form.innerHTML = renderers[activeEditorSection]();
@@ -973,14 +1050,6 @@ function bindEditorEvents() {
     button.addEventListener("click", () => removeItem(button.dataset.remove));
   });
 
-  const codeInput = qs("[data-code-input]", qs("#editor-form"));
-  if (codeInput) {
-    codeInput.addEventListener("input", () => {
-      localStorage.setItem(CODE_KEY, codeInput.value || DEFAULT_CODE);
-      const status = qs("#save-status");
-      if (status) status.textContent = "Code saved";
-    });
-  }
 }
 
 function openEditor() {
@@ -1019,8 +1088,8 @@ function unlockEditor() {
   const status = qs("#save-status");
 
   if (status) {
-    status.textContent = serverPersistence
-      ? "Server autosave ready"
+    status.textContent = sharedStorageAvailable
+      ? "Firestore autosave ready"
       : "Browser autosave ready";
   }
 }
@@ -1033,22 +1102,34 @@ function bindEditorShell() {
     if (event.target.id === "editor") closeEditor();
   });
 
-  qs("#unlock-form").addEventListener("submit", (event) => {
-  event.preventDefault();
+  qs("#unlock-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-  const input = qs("#owner-code");
-  const status = qs("#unlock-status");
+    const input = qs("#owner-code");
+    const status = qs("#unlock-status");
+    const code = input.value.trim();
 
-  if (input.value === DEFAULT_CODE) {
-    localStorage.setItem(CODE_KEY, DEFAULT_CODE);
+    if (!code) {
+      status.textContent = "Enter the owner code";
+      return;
+    }
 
-    status.textContent = "";
+    status.textContent = "Checking code...";
 
-    unlockEditor();
-  } else {
-    status.textContent = "Code did not match";
-  }
-});
+    if (await verifyOwnerCode(code)) {
+      localStorage.setItem(CODE_KEY, code);
+      status.textContent = "";
+      unlockEditor();
+
+      if (sharedStorageAvailable && localStorage.getItem(STORAGE_KEY)) {
+        const saveStatus = qs("#save-status");
+        if (saveStatus) saveStatus.textContent = "Publishing browser edits...";
+        await saveProfileToFirestore();
+      }
+    } else {
+      status.textContent = "Code did not match";
+    }
+  });
 
   qs("#reset-profile").addEventListener("click", () => {
     if (!window.confirm("Reset portfolio details?")) return;
@@ -1423,6 +1504,7 @@ function initThreeScene() {
 
 profile = await loadProfile();
 renderSite();
+startLiveProfileUpdates();
 bindShell();
 bindEditorShell();
 bindKeyboardPlay();

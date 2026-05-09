@@ -603,19 +603,25 @@ h1 {
   position: relative;
   display: grid;
   place-items: center;
-  width: 76px;
+  width: 94px;
   aspect-ratio: 1;
-  border: 1px solid var(--border-strong);
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--brand) 50%, var(--border-strong));
   border-radius: 50%;
+  background:
+    radial-gradient(circle at 28% 18%, color-mix(in srgb, white 18%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--brand) 18%, transparent), color-mix(in srgb, var(--warm) 10%, transparent));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, black 24%, transparent) inset,
+    0 14px 36px color-mix(in srgb, black 32%, transparent);
 }
 
 .profile-orbit::before {
   position: absolute;
-  inset: 6px;
-  border: 1px dashed var(--border);
+  inset: 4px;
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
   border-radius: inherit;
   content: "";
-  animation: spin 14s linear infinite;
 }
 
 .profile-orbit img,
@@ -624,15 +630,21 @@ h1 {
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 58px;
+  width: 100%;
+  height: 100%;
   aspect-ratio: 1;
   border-radius: 50%;
   object-fit: cover;
+  object-position: center top;
   background:
     radial-gradient(circle at 30% 22%, color-mix(in srgb, white 16%, transparent), transparent 34%),
     linear-gradient(135deg, color-mix(in srgb, var(--brand) 22%, #111), #161a17);
   color: var(--text);
   font-weight: 900;
+}
+
+.profile-orbit [hidden] {
+  display: none !important;
 }
 
 .profile-orbit img:not([src]) {

@@ -7,7 +7,6 @@ const { chromium } = require("playwright");
 const { PNG } = require("pngjs");
 
 const root = process.cwd();
-let memoryProfile = null;
 const types = {
   ".html": "text/html",
   ".css": "text/css",
@@ -18,33 +17,6 @@ const types = {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", "http://127.0.0.1");
-
-  if (url.pathname === "/api/profile") {
-    if (req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-      res.end(JSON.stringify({ profile: memoryProfile }));
-      return;
-    }
-
-    if (req.method === "PUT") {
-      if (req.headers["x-owner-code"] !== "23") {
-        res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Invalid owner code" }));
-        return;
-      }
-
-      let body = "";
-      req.on("data", (chunk) => {
-        body += chunk;
-      });
-      req.on("end", () => {
-        memoryProfile = JSON.parse(body).profile;
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true }));
-      });
-      return;
-    }
-  }
 
   const cleanPath = path
     .normalize(decodeURIComponent(url.pathname))
@@ -94,6 +66,59 @@ function canvasStats(dataUrl) {
   return { width: png.width, height: png.height, samples, nonTransparent, colored };
 }
 
+async function installFirebaseMocks(page) {
+  await page.route("https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: "export function initializeApp(config){ globalThis.__portfolioFirebaseConfig = config; return { config }; }"
+    })
+  );
+
+  await page.route("https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: `
+        const store = globalThis.__portfolioTestFirestore ||= {};
+        const listeners = globalThis.__portfolioTestFirestoreListeners ||= {};
+        const snapshotFor = (path) => ({
+          exists: () => Boolean(store[path]),
+          data: () => store[path] || {}
+        });
+        export function getFirestore(app){ return { app }; }
+        export function doc(db, ...path){ return { db, path: path.join("/") }; }
+        export async function getDoc(ref){
+          return snapshotFor(ref.path);
+        }
+        export async function setDoc(ref, data, options = {}){
+          store[ref.path] = options.merge ? { ...(store[ref.path] || {}), ...data } : data;
+          (listeners[ref.path] || []).forEach((listener) => listener(snapshotFor(ref.path)));
+        }
+        export function onSnapshot(ref, next, error){
+          listeners[ref.path] ||= [];
+          listeners[ref.path].push(next);
+          queueMicrotask(() => next(snapshotFor(ref.path)));
+          return () => {
+            listeners[ref.path] = (listeners[ref.path] || []).filter((listener) => listener !== next);
+          };
+        }
+        export function serverTimestamp(){ return "test-timestamp"; }
+      `
+    })
+  );
+
+  await page.route("https://www.gstatic.com/firebasejs/12.12.1/firebase-storage.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: `
+        export function getStorage(app){ return { app }; }
+        export function ref(storage, path){ return { storage, path }; }
+        export async function uploadBytes(ref, file, metadata){ return { ref, metadata }; }
+        export async function getDownloadURL(ref){ return "https://firebase.test/" + ref.path; }
+      `
+    })
+  );
+}
+
 (async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = server.address().port;
@@ -118,6 +143,7 @@ function canvasStats(dataUrl) {
     });
     const page = await context.newPage();
     const errors = [];
+    await installFirebaseMocks(page);
 
     page.on("console", (msg) => {
       if (msg.type() === "error") errors.push(msg.text());
@@ -152,8 +178,24 @@ function canvasStats(dataUrl) {
       await page.waitForTimeout(250);
       result.unlocked = await page.locator("#editor-workspace").isVisible();
       await page.fill("#name", "Siddesh Naik API Test");
+      await page.fill("#profilePhoto", "/favicon.svg");
       await page.waitForTimeout(900);
-      result.serverSaved = memoryProfile?.name === "Siddesh Naik API Test";
+      result.sharedSaved = await page.evaluate(
+        () =>
+          globalThis.__portfolioTestFirestore?.["portfolio/profile"]?.profile?.name === "Siddesh Naik API Test" &&
+          globalThis.__portfolioTestFirestore?.["portfolio/profile"]?.profile?.profilePhoto === "/favicon.svg"
+      );
+      result.profilePhotoLayout = await page.evaluate(() => {
+        const photo = document.getElementById("profile-photo");
+        const avatar = document.getElementById("initials-avatar");
+        const rect = photo.getBoundingClientRect();
+        return {
+          avatarHidden: avatar.hidden,
+          photoHidden: photo.hidden,
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        };
+      });
     }
 
     results.push(result);
