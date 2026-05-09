@@ -1034,17 +1034,21 @@ function bindEditorShell() {
   });
 
   qs("#unlock-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const input = qs("#owner-code");
-    const status = qs("#unlock-status");
-    if (input.value === ownerCode() || input.value === DEFAULT_CODE) {
-      localStorage.setItem(CODE_KEY, input.value || DEFAULT_CODE);
-      status.textContent = "";
-      unlockEditor();
-    } else {
-      status.textContent = "Code did not match";
-    }
-  });
+  event.preventDefault();
+
+  const input = qs("#owner-code");
+  const status = qs("#unlock-status");
+
+  if (input.value === DEFAULT_CODE) {
+    localStorage.setItem(CODE_KEY, DEFAULT_CODE);
+
+    status.textContent = "";
+
+    unlockEditor();
+  } else {
+    status.textContent = "Code did not match";
+  }
+});
 
   qs("#reset-profile").addEventListener("click", () => {
     if (!window.confirm("Reset portfolio details?")) return;
