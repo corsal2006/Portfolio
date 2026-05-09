@@ -5,7 +5,7 @@ const CODE_KEY = "siddesh-naik-portfolio-code";
 const THEME_KEY = "siddesh-naik-portfolio-theme";
 const PROFILE_API = "/api/profile";
 const UPLOAD_API = "/api/upload";
-const DEFAULT_CODE = "";
+const DEFAULT_CODE = "23";
 
 const DEVICON_MAP = {
   ai: "",
