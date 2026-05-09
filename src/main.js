@@ -5,7 +5,7 @@ const CODE_KEY = "siddesh-naik-portfolio-code";
 const THEME_KEY = "siddesh-naik-portfolio-theme";
 const PROFILE_API = "/api/profile";
 const UPLOAD_API = "/api/upload";
-const DEFAULT_CODE = "23";
+const DEFAULT_CODE = "";
 
 const DEVICON_MAP = {
   ai: "",
@@ -984,11 +984,31 @@ function closeEditor() {
 
 function unlockEditor() {
   isUnlocked = true;
+
+  const unlockForm = qs("#unlock-form");
+  const workspace = qs("#editor-workspace");
+
+  if (unlockForm) {
+    unlockForm.style.display = "none";
+    unlockForm.hidden = true;
+  }
+
+  if (workspace) {
+    workspace.hidden = false;
+    workspace.style.display = "grid";
+  }
+
   qs("#editor-title").textContent = "Edit Portfolio";
-  qs("#unlock-form").hidden = true;
-  qs("#editor-workspace").hidden = false;
+
   renderEditor();
-  qs("#save-status").textContent = serverPersistence ? "Server autosave ready" : "Browser autosave ready";
+
+  const status = qs("#save-status");
+
+  if (status) {
+    status.textContent = serverPersistence
+      ? "Server autosave ready"
+      : "Browser autosave ready";
+  }
 }
 
 function bindEditorShell() {
