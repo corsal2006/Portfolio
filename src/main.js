@@ -368,6 +368,22 @@ function collectAssetRefs(value, refs = new Set()) {
   return refs;
 }
 
+function objectUrlFromDataUrl(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:([^;,]+)?(;base64)?,(.*)$/);
+
+  if (!match) {
+    return dataUrl;
+  }
+
+  const contentType = match[1] || "application/octet-stream";
+  const payload = match[3] || "";
+  const bytes = match[2]
+    ? Uint8Array.from(atob(payload), (character) => character.charCodeAt(0))
+    : new TextEncoder().encode(decodeURIComponent(payload));
+
+  return URL.createObjectURL(new Blob([bytes], { type: contentType }));
+}
+
 async function readFirestoreAsset(assetRef) {
   if (assetUrlCache.has(assetRef)) {
     return assetUrlCache.get(assetRef);
@@ -393,8 +409,9 @@ async function readFirestoreAsset(assetRef) {
   }
 
   const dataUrl = chunks.join("");
-  assetUrlCache.set(assetRef, dataUrl);
-  return dataUrl;
+  const objectUrl = objectUrlFromDataUrl(dataUrl);
+  assetUrlCache.set(assetRef, objectUrl);
+  return objectUrl;
 }
 
 async function hydrateProfileAssets(nextProfile) {
@@ -612,7 +629,7 @@ async function saveUploadToFirestore({ kind, file, contentType }) {
     createdAt: serverTimestamp()
   });
 
-  assetUrlCache.set(assetRef, dataUrl);
+  assetUrlCache.set(assetRef, objectUrlFromDataUrl(dataUrl));
   return assetRef;
 }
 

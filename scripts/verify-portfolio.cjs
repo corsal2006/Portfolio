@@ -181,18 +181,34 @@ async function installFirebaseMocks(page) {
           "base64"
         )
       });
+      await page.setInputFiles("#resumeUrl-upload", {
+        name: "resume.pdf",
+        mimeType: "application/pdf",
+        buffer: fs.readFileSync(path.join(root, "resume.pdf"))
+      });
       await page.waitForTimeout(1200);
       result.sharedSaved = await page.evaluate(() => {
         const store = globalThis.__portfolioTestFirestore || {};
         const saved = store["portfolio/profile"]?.profile;
-        const assetRef = saved?.profilePhoto || "";
-        const assetId = assetRef.replace("firestore-asset:", "");
+        const photoRef = saved?.profilePhoto || "";
+        const photoId = photoRef.replace("firestore-asset:", "");
+        const resumeRef = saved?.resumeUrl || "";
+        const resumeId = resumeRef.replace("firestore-asset:", "");
         return (
           saved?.name === "Siddesh Naik API Test" &&
-          assetRef.startsWith("firestore-asset:profile-photo-") &&
-          Boolean(store[`portfolioFiles/${assetId}`]?.chunkCount) &&
-          Boolean(store[`portfolioFiles/${assetId}/chunks/0`]?.value)
+          photoRef.startsWith("firestore-asset:profile-photo-") &&
+          Boolean(store[`portfolioFiles/${photoId}`]?.chunkCount) &&
+          Boolean(store[`portfolioFiles/${photoId}/chunks/0`]?.value) &&
+          resumeRef.startsWith("firestore-asset:resume-") &&
+          Boolean(store[`portfolioFiles/${resumeId}`]?.chunkCount) &&
+          Boolean(store[`portfolioFiles/${resumeId}/chunks/0`]?.value)
         );
+      });
+      result.resumeLinkIsBlob = await page.evaluate(() => {
+        const resumeLink = [...document.querySelectorAll("#hero-actions a")].find((link) =>
+          /resume/i.test(link.textContent || "")
+        );
+        return resumeLink?.href.startsWith("blob:");
       });
       result.profilePhotoLayout = await page.evaluate(() => {
         const photo = document.getElementById("profile-photo");
