@@ -160,6 +160,13 @@ async function installFirebaseMocks(page) {
     };
 
     if (spec.name === "desktop") {
+      result.journalCards = await page.locator("#journal-list .journal-card").count();
+      result.emailOpensGmail = await page.evaluate(() => {
+        const emailLink = [...document.querySelectorAll("#hero-actions a")].find((link) =>
+          /email/i.test(link.textContent || "")
+        );
+        return emailLink?.href.startsWith("https://mail.google.com/mail/?") && emailLink.href.includes("to=");
+      });
       await page.click("#edit-toggle");
       await page.fill("#owner-code", "23");
       await page.click("#unlock-form button[type=submit]");

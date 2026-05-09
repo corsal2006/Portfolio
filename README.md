@@ -13,6 +13,8 @@ A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, 
 - Owner edit mode protected by a special code.
 - Editable resume PDF link with upload support.
 - Editable project cards with project image upload support.
+- Editable Blog/Journal section for learning notes and project reflections.
+- Email links open a Gmail compose window addressed to the saved contact email.
 - Persistent deployed edits using Firebase Firestore.
 - Uploaded images and resume files saved as chunked Firestore assets.
 - Local JSON fallback for development.

@@ -80,7 +80,7 @@ const DEFAULT_PROFILE = {
   about:
     "I am a Computer Science Engineering student specializing in AIML. My portfolio highlights coding practice, machine learning experiments, academic work, and projects that connect theory with real usable products.",
   location: "India",
-  email: "siddesh@example.com",
+  email: "siddeshnaik292006@gmail.com",
   phone: "+91 00000 00000",
   resumeUrl: "/resume.pdf",
   profilePhoto: "",
@@ -256,10 +256,36 @@ const DEFAULT_PROFILE = {
       title: "Engineering Mindset",
       detail: "Focused on clean UI, useful features, and practical problem solving."
     }
+  ],
+  journal: [
+    {
+      title: "Why I Built an Editable Portfolio",
+      date: "May 2026",
+      tag: "Portfolio",
+      summary:
+        "Notes from turning a static student portfolio into a live editable site with persistent content and project updates.",
+      link: ""
+    },
+    {
+      title: "Learning AI/ML Through Projects",
+      date: "2026",
+      tag: "AIML",
+      summary:
+        "A short reflection on learning machine learning by building small experiments, dashboards, and practical tools.",
+      link: ""
+    },
+    {
+      title: "Engineering Notes",
+      date: "2026",
+      tag: "Journal",
+      summary:
+        "Quick thoughts on coding practice, college work, cloud deployment, and the habits behind cleaner software.",
+      link: ""
+    }
   ]
 };
 
-const editorSections = ["Profile", "Links", "Info", "Stack", "Experience", "Projects", "Wins"];
+const editorSections = ["Profile", "Links", "Info", "Stack", "Experience", "Projects", "Journal", "Wins"];
 
 let profile = clone(DEFAULT_PROFILE);
 let activeSkillCategory = "All";
@@ -649,6 +675,49 @@ function safeUrl(url) {
   return `https://${trimmed}`;
 }
 
+function extractEmailAddress(value = "") {
+  const trimmed = String(value || "").trim();
+  const withoutMailto = trimmed.replace(/^mailto:/i, "").split("?")[0];
+
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(withoutMailto)) {
+    return withoutMailto;
+  }
+
+  return trimmed.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0] || "";
+}
+
+function gmailComposeUrl(to, subject = "", body = "") {
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    to
+  });
+
+  if (subject) params.set("su", subject);
+  if (body) params.set("body", body);
+
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
+function contactEmail() {
+  return (
+    extractEmailAddress(profile.email) ||
+    extractEmailAddress(profile.socials.find((link) => /mail|email/i.test(link.label || ""))?.url) ||
+    extractEmailAddress(profile.socials.map((link) => link.url).find((url) => extractEmailAddress(url)))
+  );
+}
+
+function hrefForLink(label, url) {
+  const email = extractEmailAddress(url);
+  const isEmailLink = /mail|email/i.test(label || "") || email || /^mailto:/i.test(String(url || ""));
+
+  if (isEmailLink && email) {
+    return gmailComposeUrl(email, `Portfolio contact for ${profile.name || "Siddesh Naik"}`);
+  }
+
+  return safeUrl(url);
+}
+
 function splitList(value) {
   return String(value || "")
     .split(/,|\n/)
@@ -718,7 +787,7 @@ function renderActions() {
 
   const markup = links
     .map((link, index) => {
-      const href = safeUrl(link.url);
+      const href = hrefForLink(link.label, link.url);
       const primaryClass = link.primary || index === 0 ? " primary" : "";
       return `<a class="command-link cursor-can-hover${primaryClass}" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${socialIcon(link.label, link.url)}<span>${escapeHtml(link.label)}</span></a>`;
     })
@@ -862,6 +931,28 @@ function renderProjects() {
     .join("");
 }
 
+function renderJournal() {
+  qs("#journal-list").innerHTML = (profile.journal || [])
+    .map((entry) => {
+      const link = safeUrl(entry.link || "");
+      const title = link
+        ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(entry.title)}</a>`
+        : escapeHtml(entry.title);
+
+      return `
+        <article class="journal-card reveal">
+          <div class="journal-meta">
+            <span>${escapeHtml(entry.tag || "Journal")}</span>
+            <time>${escapeHtml(entry.date || "")}</time>
+          </div>
+          <h3>${title}</h3>
+          <p>${escapeHtml(entry.summary)}</p>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderAchievements() {
   qs("#achievement-list").innerHTML = profile.achievements
     .map(
@@ -880,7 +971,7 @@ function renderFooter() {
   qs("#footer-links").innerHTML = profile.socials
     .filter((link) => link.label && link.url)
     .slice(0, 4)
-    .map((link) => `<a href="${escapeHtml(safeUrl(link.url))}" target="_blank" rel="noreferrer">${socialIcon(link.label, link.url)}<span>${escapeHtml(link.label)}</span></a>`)
+    .map((link) => `<a href="${escapeHtml(hrefForLink(link.label, link.url))}" target="_blank" rel="noreferrer">${socialIcon(link.label, link.url)}<span>${escapeHtml(link.label)}</span></a>`)
     .join("");
 }
 
@@ -892,6 +983,7 @@ function renderSite() {
   renderSkills();
   renderExperience();
   renderProjects();
+  renderJournal();
   renderAchievements();
   renderFooter();
   observeReveals();
@@ -1092,6 +1184,25 @@ function renderProjectsEditor() {
   return `<div class="repeat-list">${cards}<button class="add-button" type="button" data-add="projects">Add Project</button></div>`;
 }
 
+function renderJournalEditor() {
+  const cards = (profile.journal || [])
+    .map((item, index) =>
+      repeatCard(
+        item.title || `Journal ${index + 1}`,
+        `
+          ${repeatedInput("Title", `journal.${index}.title`, item.title)}
+          ${repeatedInput("Date", `journal.${index}.date`, item.date)}
+          ${repeatedInput("Tag", `journal.${index}.tag`, item.tag)}
+          ${repeatedInput("Link", `journal.${index}.link`, item.link, "url", true)}
+          ${repeatedTextarea("Summary", `journal.${index}.summary`, item.summary)}
+        `,
+        `journal:${index}`
+      )
+    )
+    .join("");
+  return `<div class="repeat-list">${cards}<button class="add-button" type="button" data-add="journal">Add Journal Entry</button></div>`;
+}
+
 function renderAchievementsEditor() {
   const cards = profile.achievements
     .map((item, index) =>
@@ -1118,6 +1229,7 @@ function renderEditor() {
     Stack: renderSkillsEditor,
     Experience: renderExperienceEditor,
     Projects: renderProjectsEditor,
+    Journal: renderJournalEditor,
     Wins: renderAchievementsEditor
   };
 
@@ -1132,6 +1244,7 @@ function addItem(collection) {
     skills: { name: "New Skill", category: "Coding", level: 50, icon: "", note: "" },
     experience: { title: "New Experience", company: "", period: "", bullets: "", tech: "" },
     projects: { title: "New Project", type: "Web", year: "2026", description: "", tech: "", link: "", image: "" },
+    journal: { title: "New Journal Entry", date: "2026", tag: "Journal", summary: "", link: "" },
     achievements: { title: "New Achievement", detail: "" }
   };
   profile[collection].push(clone(templates[collection]));
@@ -1299,8 +1412,28 @@ function bindShell() {
 
   qs("#contact-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    qs("#form-status").textContent = "Message captured here. Use the email link to send it directly.";
-    event.currentTarget.reset();
+    const form = event.currentTarget;
+    const targetEmail = contactEmail();
+    const formData = new FormData(form);
+    const senderName = formData.get("fullname") || "";
+    const senderEmail = formData.get("email") || "";
+    const message = formData.get("message") || "";
+
+    if (!targetEmail) {
+      qs("#form-status").textContent = "Add an email address in owner mode first.";
+      return;
+    }
+
+    const body = [
+      `Name: ${senderName}`,
+      `Email: ${senderEmail}`,
+      "",
+      String(message)
+    ].join("\n");
+
+    window.open(gmailComposeUrl(targetEmail, `Portfolio message from ${senderName || "visitor"}`, body), "_blank", "noopener,noreferrer");
+    qs("#form-status").textContent = "Gmail compose opened with your message.";
+    form.reset();
   });
 }
 

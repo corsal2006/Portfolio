@@ -833,6 +833,7 @@ h1 {
 .skill-card h3,
 .experience-card h3,
 .project-card h3,
+.journal-card h3,
 .achievement-card h3 {
   margin: 0;
   font-size: 1.05rem;
@@ -842,6 +843,7 @@ h1 {
 .skill-card p,
 .experience-card li,
 .project-card p,
+.journal-card p,
 .achievement-card p {
   color: var(--muted);
   line-height: 1.62;
@@ -1138,6 +1140,63 @@ h1 {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 800;
+}
+
+.journal-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 44px;
+}
+
+.journal-card {
+  display: flex;
+  min-height: 250px;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--brand) 8%, transparent), transparent 48%),
+    var(--card);
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.journal-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+  box-shadow: 0 18px 50px color-mix(in srgb, black 18%, transparent);
+}
+
+.journal-card h3 a,
+.project-card h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.journal-card h3 a:hover,
+.journal-card h3 a:focus-visible,
+.project-card h3 a:hover,
+.project-card h3 a:focus-visible {
+  color: var(--brand);
+}
+
+.journal-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: var(--warm);
+  font-size: 0.8rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.journal-card p {
+  margin-bottom: 0;
 }
 
 .profile-band {
@@ -1627,6 +1686,7 @@ h1 {
 
   .tech-grid,
   .project-grid,
+  .journal-list,
   .achievement-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1678,6 +1738,7 @@ h1 {
 
   .tech-grid,
   .project-grid,
+  .journal-list,
   .achievement-list,
   .field-grid,
   .contact-row {

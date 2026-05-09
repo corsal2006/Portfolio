@@ -195,5 +195,28 @@
       "title": "Engineering Mindset",
       "detail": "Focused on clean UI, useful features, and practical problem solving."
     }
+  ],
+  "journal": [
+    {
+      "title": "Why I Built an Editable Portfolio",
+      "date": "May 2026",
+      "tag": "Portfolio",
+      "summary": "Notes from turning a static student portfolio into a live editable site with persistent content and project updates.",
+      "link": ""
+    },
+    {
+      "title": "Learning AI/ML Through Projects",
+      "date": "2026",
+      "tag": "AIML",
+      "summary": "A short reflection on learning machine learning by building small experiments, dashboards, and practical tools.",
+      "link": ""
+    },
+    {
+      "title": "Engineering Notes",
+      "date": "2026",
+      "tag": "Journal",
+      "summary": "Quick thoughts on coding practice, college work, cloud deployment, and the habits behind cleaner software.",
+      "link": ""
+    }
   ]
 }
