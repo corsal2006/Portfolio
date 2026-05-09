@@ -105,18 +105,6 @@ async function installFirebaseMocks(page) {
       `
     })
   );
-
-  await page.route("https://www.gstatic.com/firebasejs/12.12.1/firebase-storage.js", (route) =>
-    route.fulfill({
-      contentType: "text/javascript",
-      body: `
-        export function getStorage(app){ return { app }; }
-        export function ref(storage, path){ return { storage, path }; }
-        export async function uploadBytes(ref, file, metadata){ return { ref, metadata }; }
-        export async function getDownloadURL(ref){ return "https://firebase.test/" + ref.path; }
-      `
-    })
-  );
 }
 
 (async () => {
@@ -178,13 +166,27 @@ async function installFirebaseMocks(page) {
       await page.waitForTimeout(250);
       result.unlocked = await page.locator("#editor-workspace").isVisible();
       await page.fill("#name", "Siddesh Naik API Test");
-      await page.fill("#profilePhoto", "/favicon.svg");
-      await page.waitForTimeout(900);
-      result.sharedSaved = await page.evaluate(
-        () =>
-          globalThis.__portfolioTestFirestore?.["portfolio/profile"]?.profile?.name === "Siddesh Naik API Test" &&
-          globalThis.__portfolioTestFirestore?.["portfolio/profile"]?.profile?.profilePhoto === "/favicon.svg"
-      );
+      await page.setInputFiles("#profilePhoto-upload", {
+        name: "avatar.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Yo8wAAAABJRU5ErkJggg==",
+          "base64"
+        )
+      });
+      await page.waitForTimeout(1200);
+      result.sharedSaved = await page.evaluate(() => {
+        const store = globalThis.__portfolioTestFirestore || {};
+        const saved = store["portfolio/profile"]?.profile;
+        const assetRef = saved?.profilePhoto || "";
+        const assetId = assetRef.replace("firestore-asset:", "");
+        return (
+          saved?.name === "Siddesh Naik API Test" &&
+          assetRef.startsWith("firestore-asset:profile-photo-") &&
+          Boolean(store[`portfolioFiles/${assetId}`]?.chunkCount) &&
+          Boolean(store[`portfolioFiles/${assetId}/chunks/0`]?.value)
+        );
+      });
       result.profilePhotoLayout = await page.evaluate(() => {
         const photo = document.getElementById("profile-photo");
         const avatar = document.getElementById("initials-avatar");

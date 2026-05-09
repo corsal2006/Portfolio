@@ -8,12 +8,6 @@ import {
   serverTimestamp,
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
-import {
-  getDownloadURL,
-  getStorage,
-  ref as storageRef,
-  uploadBytes
-} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-storage.js";
 
 const STORAGE_KEY = "siddesh-naik-portfolio-profile";
 const CODE_KEY = "siddesh-naik-portfolio-code";
@@ -21,7 +15,9 @@ const THEME_KEY = "siddesh-naik-portfolio-theme";
 const DEFAULT_CODE = "23";
 const FIRESTORE_PROFILE_COLLECTION = "portfolio";
 const FIRESTORE_PROFILE_DOCUMENT = "profile";
-const FIREBASE_UPLOAD_PREFIX = "portfolio/uploads";
+const FIRESTORE_ASSET_COLLECTION = "portfolioFiles";
+const FIRESTORE_ASSET_SCHEME = "firestore-asset:";
+const FIRESTORE_CHUNK_SIZE = 700_000;
 const MAX_UPLOAD_BYTES = 3_000_000;
 
 const firebaseConfig = {
@@ -35,8 +31,8 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const firestoreDb = getFirestore(firebaseApp);
-const firebaseStorage = getStorage(firebaseApp);
 const profileDoc = doc(firestoreDb, FIRESTORE_PROFILE_COLLECTION, FIRESTORE_PROFILE_DOCUMENT);
+const assetUrlCache = new Map();
 
 const imageTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 const pdfTypes = new Set(["application/pdf"]);
@@ -308,6 +304,85 @@ function loadLocalProfile() {
   }
 }
 
+function isFirestoreAssetRef(value) {
+  return String(value || "").startsWith(FIRESTORE_ASSET_SCHEME);
+}
+
+function assetIdFromRef(value) {
+  return String(value || "").slice(FIRESTORE_ASSET_SCHEME.length);
+}
+
+function assetRefFromId(assetId) {
+  return `${FIRESTORE_ASSET_SCHEME}${assetId}`;
+}
+
+function createAssetId(kind) {
+  const random =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${kind}-${random}`;
+}
+
+function collectAssetRefs(value, refs = new Set()) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectAssetRefs(item, refs));
+    return refs;
+  }
+
+  if (value && typeof value === "object") {
+    Object.values(value).forEach((item) => collectAssetRefs(item, refs));
+    return refs;
+  }
+
+  if (isFirestoreAssetRef(value)) {
+    refs.add(value);
+  }
+
+  return refs;
+}
+
+async function readFirestoreAsset(assetRef) {
+  if (assetUrlCache.has(assetRef)) {
+    return assetUrlCache.get(assetRef);
+  }
+
+  const assetId = assetIdFromRef(assetRef);
+  const metaSnapshot = await getDoc(doc(firestoreDb, FIRESTORE_ASSET_COLLECTION, assetId));
+
+  if (!metaSnapshot.exists()) {
+    throw new Error("Uploaded file was not found.");
+  }
+
+  const meta = metaSnapshot.data();
+  const chunkCount = Number(meta?.chunkCount || 0);
+  const chunks = [];
+
+  for (let index = 0; index < chunkCount; index += 1) {
+    const chunkSnapshot = await getDoc(doc(firestoreDb, FIRESTORE_ASSET_COLLECTION, assetId, "chunks", String(index)));
+    if (!chunkSnapshot.exists()) {
+      throw new Error("Uploaded file is incomplete.");
+    }
+    chunks.push(chunkSnapshot.data().value || "");
+  }
+
+  const dataUrl = chunks.join("");
+  assetUrlCache.set(assetRef, dataUrl);
+  return dataUrl;
+}
+
+async function hydrateProfileAssets(nextProfile) {
+  await Promise.all(
+    [...collectAssetRefs(nextProfile)].map(async (assetRef) => {
+      try {
+        await readFirestoreAsset(assetRef);
+      } catch (error) {
+        console.warn(error.message || "Could not load uploaded file");
+      }
+    })
+  );
+}
+
 async function loadProfile() {
   try {
     const snapshot = await getDoc(profileDoc);
@@ -316,8 +391,10 @@ async function loadProfile() {
     if (snapshot.exists()) {
       const data = snapshot.data();
       if (data?.profile) {
+        const nextProfile = deepMerge(DEFAULT_PROFILE, data.profile);
+        await hydrateProfileAssets(nextProfile);
         localStorage.removeItem(STORAGE_KEY);
-        return deepMerge(DEFAULT_PROFILE, data.profile);
+        return nextProfile;
       }
     }
 
@@ -349,9 +426,14 @@ function startLiveProfileUpdates() {
           return;
         }
 
-        profile = deepMerge(DEFAULT_PROFILE, data.profile);
+        const nextProfile = deepMerge(DEFAULT_PROFILE, data.profile);
+        hydrateProfileAssets(nextProfile).then(() => {
+          if (isUnlocked) return;
+          profile = nextProfile;
+          localStorage.removeItem(STORAGE_KEY);
+          renderSite();
+        });
         localStorage.removeItem(STORAGE_KEY);
-        renderSite();
       },
       () => {
         sharedStorageAvailable = false;
@@ -467,6 +549,47 @@ function safeFileName(fileName, kind, contentType) {
   return `${baseName || kind}-${Date.now()}${extension}`;
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(reader.error || new Error("Could not read file")));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function saveUploadToFirestore({ kind, file, contentType }) {
+  const assetId = createAssetId(kind);
+  const assetRef = assetRefFromId(assetId);
+  const dataUrl = await fileToDataUrl(file);
+  const chunks = [];
+
+  for (let index = 0; index < dataUrl.length; index += FIRESTORE_CHUNK_SIZE) {
+    chunks.push(dataUrl.slice(index, index + FIRESTORE_CHUNK_SIZE));
+  }
+
+  await Promise.all(
+    chunks.map((value, index) =>
+      setDoc(doc(firestoreDb, FIRESTORE_ASSET_COLLECTION, assetId, "chunks", String(index)), {
+        value,
+        index
+      })
+    )
+  );
+
+  await setDoc(doc(firestoreDb, FIRESTORE_ASSET_COLLECTION, assetId), {
+    contentType,
+    fileName: safeFileName(file.name, kind, contentType),
+    kind,
+    chunkCount: chunks.length,
+    size: file.size,
+    createdAt: serverTimestamp()
+  });
+
+  assetUrlCache.set(assetRef, dataUrl);
+  return assetRef;
+}
+
 async function uploadEditorFile(input) {
   const file = input.files?.[0];
   if (!file) return;
@@ -478,16 +601,14 @@ async function uploadEditorFile(input) {
 
   try {
     const contentType = assertAllowedUpload(kind, file);
-    const targetRef = storageRef(firebaseStorage, `${FIREBASE_UPLOAD_PREFIX}/${kind}/${safeFileName(file.name, kind, contentType)}`);
-    const snapshot = await uploadBytes(targetRef, file, { contentType });
-    const url = await getDownloadURL(snapshot.ref);
+    const assetRef = await saveUploadToFirestore({ kind, file, contentType });
 
-    setByPath(path, url);
-    saveProfile();
+    setByPath(path, assetRef);
+    await saveProfileToFirestore();
     renderSite();
     renderEditor();
     const nextStatus = qs("#save-status");
-    if (nextStatus) nextStatus.textContent = kind === "resume" ? "Resume uploaded" : "Image uploaded";
+    if (nextStatus) nextStatus.textContent = kind === "resume" ? "Resume saved for everyone" : "Image saved for everyone";
   } catch (error) {
     if (status) status.textContent = error.message || "Upload failed";
   } finally {
@@ -521,7 +642,8 @@ function escapeHtml(value = "") {
 function safeUrl(url) {
   const trimmed = String(url || "").trim();
   if (!trimmed) return "";
-  if (/^(https?:|mailto:|tel:|blob:)/i.test(trimmed)) return trimmed;
+  if (isFirestoreAssetRef(trimmed)) return assetUrlCache.get(trimmed) || "";
+  if (/^(https?:|mailto:|tel:|blob:|data:image\/|data:application\/pdf)/i.test(trimmed)) return trimmed;
   if (/^(\/|\.\/|#)/.test(trimmed)) return trimmed;
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) return `mailto:${trimmed}`;
   return `https://${trimmed}`;

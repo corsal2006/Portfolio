@@ -1,6 +1,6 @@
 # Siddesh Naik 3D Editable Portfolio
 
-A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, Firebase Firestore, Firebase Storage, and Vercel. The site includes a hidden owner editor that can update portfolio text, links, skills, experience, projects, project images, profile photo, and resume PDF.
+A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, Firebase Firestore, and Vercel. The site includes a hidden owner editor that can update portfolio text, links, skills, experience, projects, project images, profile photo, and resume PDF.
 
 ![Desktop preview](screenshots/desktop.png)
 
@@ -14,7 +14,7 @@ A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, 
 - Editable resume PDF link with upload support.
 - Editable project cards with project image upload support.
 - Persistent deployed edits using Firebase Firestore.
-- Uploaded images and resume files using Firebase Storage.
+- Uploaded images and resume files saved as chunked Firestore assets.
 - Local JSON fallback for development.
 
 ## How Permanent Editing Works
@@ -22,12 +22,12 @@ A 3D animated engineering portfolio built with HTML, CSS, JavaScript, Three.js, 
 When deployed on Vercel, the portfolio saves data outside the codebase:
 
 - Portfolio content is saved in the Firestore document `portfolio/profile`.
-- Uploaded files are saved under `portfolio/uploads/...` in Firebase Storage.
+- Uploaded files are saved as chunked Firestore documents under `portfolioFiles`.
 - Visitors load the same saved portfolio data from Firestore.
 - Open visitor tabs listen for Firestore updates and refresh the displayed content live.
 - Changes made from owner mode are visible to everyone, even after redeploys.
 
-Important: permanent deployed edits require Firebase Firestore and Storage rules that allow this site to read the profile and save owner-mode edits.
+Important: permanent deployed edits require Firebase Firestore rules that allow this site to read the profile and save owner-mode edits/uploads.
 
 ## Owner Mode
 
@@ -51,16 +51,11 @@ service cloud.firestore {
     match /portfolio/profile {
       allow read, write: if true;
     }
-  }
-}
-```
-
-```text
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /portfolio/uploads/{allPaths=**} {
+    match /portfolioFiles/{fileId} {
       allow read, write: if true;
+      match /chunks/{chunkId} {
+        allow read, write: if true;
+      }
     }
   }
 }
@@ -88,12 +83,11 @@ Local edits use the same Firebase project when Firestore is reachable. If Fireba
 1. Push the project to GitHub.
 2. Import the GitHub repo into Vercel.
 3. Create a Firestore database in the Firebase project `portfolio-b7cba`.
-4. Enable Firebase Storage in the same project.
-5. Add Firestore and Storage rules that allow the portfolio profile to be read and updated.
-6. In Vercel Deployment Protection, disable Vercel Authentication for the production site if visitors should access it publicly.
-7. Redeploy the project.
-8. Open the live site, unlock owner mode, edit content, and wait for `Saved for everyone`.
-9. Open the site in another browser/device to confirm everyone sees the saved changes.
+4. Add Firestore rules that allow the portfolio profile and `portfolioFiles` assets to be read and updated.
+5. In Vercel Deployment Protection, disable Vercel Authentication for the production site if visitors should access it publicly.
+6. Redeploy the project.
+7. Open the live site, unlock owner mode, edit content/uploads, and wait for `Saved for everyone`.
+8. Open the site in another browser/device to confirm everyone sees the saved changes.
 
 ## Make This Your Own Portfolio
 
@@ -147,7 +141,7 @@ npm run dev
 
 Click the lock button, enter `23`, and update your content from the browser.
 
-7. Deploy to Vercel and configure Firebase Firestore/Storage.
+7. Deploy to Vercel and configure Firebase Firestore.
 
 This is the key step that makes browser edits permanent for everyone.
 
@@ -162,7 +156,7 @@ screenshots/
   desktop.png
   mobile.png
 src/
-  main.js           Portfolio rendering, Firestore saves, Firebase uploads, Three.js scene
+  main.js           Portfolio rendering, Firestore saves/uploads, Three.js scene
   styles.css        UI styling
 server.mjs          Local development server
 resume.pdf          Default resume PDF
@@ -170,6 +164,6 @@ resume.pdf          Default resume PDF
 
 ## Storage Notes
 
-This project does not commit edits made from owner mode back to GitHub. Runtime edits belong in Firebase Firestore and Firebase Storage so they can be changed after deployment and shared with all visitors immediately.
+This project does not commit edits made from owner mode back to GitHub. Runtime edits and uploads belong in Firebase Firestore so they can be changed after deployment and shared with all visitors immediately.
 
 GitHub stores the source code. Firebase stores live portfolio edits and uploaded media.
