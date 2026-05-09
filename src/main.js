@@ -267,39 +267,53 @@ function loadLocalProfile() {
 }
 
 async function loadProfile() {
-  let nextProfile = loadLocalProfile();
-
   try {
-    const response = await fetch(PROFILE_API, { cache: "no-store" });
+    const response = await fetch(PROFILE_API, {
+      cache: "no-store"
+    });
+
     if (response.ok) {
       const data = await response.json();
+
       serverPersistence = data.permanent !== false;
+
       if (data.profile) {
-        nextProfile = deepMerge(DEFAULT_PROFILE, data.profile);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextProfile));
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(data.profile)
+        );
+
+        return deepMerge(DEFAULT_PROFILE, data.profile);
       }
     }
   } catch {
     serverPersistence = false;
   }
 
-  return nextProfile;
+  return loadLocalProfile();
 }
 
 function saveProfile() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+
   window.clearTimeout(saveTimer);
+
   saveTimer = window.setTimeout(() => {
     const status = qs("#save-status");
+
     if (status) {
-      status.textContent = serverPersistence ? "Saving for everyone..." : "Saved in this browser";
+      status.textContent = serverPersistence
+        ? "Saving for everyone..."
+        : "Saved in this browser";
     }
   }, 120);
 
   window.clearTimeout(serverSaveTimer);
-  if (serverPersistence && isUnlocked) {
-    serverSaveTimer = window.setTimeout(saveProfileToServer, 520);
-  }
+
+  // FORCE cloud save always
+  serverSaveTimer = window.setTimeout(async () => {
+    await saveProfileToServer();
+  }, 520);
 }
 
 async function saveProfileToServer() {
