@@ -31,6 +31,12 @@ When deployed on Vercel, the portfolio saves data outside the codebase:
 
 Important: permanent deployed edits require Firebase Firestore rules that allow this site to read the profile and save owner-mode edits/uploads.
 
+This repository includes those rules in `firestore.rules`. After signing in to Firebase CLI, deploy them with:
+
+```bash
+npm run deploy:firestore-rules
+```
+
 ## Owner Mode
 
 1. Open the portfolio.
@@ -44,7 +50,7 @@ For production, update `DEFAULT_CODE` in `src/main.js` if you want a code other 
 
 ## Firebase Rules
 
-Use Firebase console rules that match how much control you want. For a simple editable public portfolio, this permissive setup makes the live editor work immediately:
+The checked-in `firestore.rules` file contains the rules below. Deploy it with `npm run deploy:firestore-rules`, or paste the same rules into Firebase Console → Firestore Database → Rules and publish:
 
 ```text
 rules_version = '2';

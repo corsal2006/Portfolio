@@ -294,6 +294,7 @@ let isUnlocked = false;
 let saveTimer = 0;
 let sharedSaveTimer = 0;
 let sharedStorageAvailable = false;
+let sharedStorageError = "";
 let keyCount = 0;
 let revealObserver;
 
@@ -430,6 +431,7 @@ async function loadProfile() {
   try {
     const snapshot = await getDoc(profileDoc);
     sharedStorageAvailable = true;
+    sharedStorageError = "";
 
     if (snapshot.exists()) {
       const data = snapshot.data();
@@ -446,8 +448,10 @@ async function loadProfile() {
     }
 
     return clone(DEFAULT_PROFILE);
-  } catch {
+  } catch (error) {
     sharedStorageAvailable = false;
+    sharedStorageError = firestoreErrorMessage(error);
+    console.error("[firestore] Could not load the shared portfolio.", error);
   }
 
   return loadLocalProfile();
@@ -459,6 +463,7 @@ function startLiveProfileUpdates() {
       profileDoc,
       (snapshot) => {
         sharedStorageAvailable = true;
+        sharedStorageError = "";
 
         if (!snapshot.exists() || isUnlocked) {
           return;
@@ -478,32 +483,45 @@ function startLiveProfileUpdates() {
         });
         localStorage.removeItem(STORAGE_KEY);
       },
-      () => {
+      (error) => {
         sharedStorageAvailable = false;
+        sharedStorageError = firestoreErrorMessage(error);
+        console.error("[firestore] Live portfolio updates stopped.", error);
       }
     );
-  } catch {
+  } catch (error) {
     sharedStorageAvailable = false;
+    sharedStorageError = firestoreErrorMessage(error);
+    console.error("[firestore] Could not start live portfolio updates.", error);
   }
+}
+
+function firestoreErrorMessage(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const message = String(error?.message || "");
+
+  if (code.includes("permission-denied") || /missing or insufficient permissions/i.test(message)) {
+    return "Firestore permission denied. Deploy the project Firestore rules.";
+  }
+
+  if (code.includes("unavailable") || /network|offline|failed to fetch/i.test(message)) {
+    return "Firestore is temporarily unreachable. Your edit is safe in this browser.";
+  }
+
+  return message || "Firestore is unavailable. Your edit is safe in this browser.";
 }
 
 function saveProfile() {
   window.clearTimeout(saveTimer);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
 
   saveTimer = window.setTimeout(() => {
     const status = qs("#save-status");
 
     if (status) {
-      status.textContent = sharedStorageAvailable
-        ? "Saving for everyone..."
-        : "Saved in this browser";
+      status.textContent = sharedStorageAvailable ? "Saving for everyone..." : "Retrying Firestore save...";
     }
   }, 120);
-
-  if (!sharedStorageAvailable) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-    return;
-  }
 
   window.clearTimeout(sharedSaveTimer);
 
@@ -526,6 +544,7 @@ async function saveProfileToFirestore() {
     );
 
     sharedStorageAvailable = true;
+    sharedStorageError = "";
     localStorage.removeItem(STORAGE_KEY);
 
     if (status) {
@@ -534,9 +553,12 @@ async function saveProfileToFirestore() {
 
     return true;
   } catch (error) {
+    sharedStorageAvailable = false;
+    sharedStorageError = firestoreErrorMessage(error);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    console.error("[firestore] Shared portfolio save failed.", error);
     if (status) {
-      status.textContent = `Shared save failed: ${error.message || "check Firebase rules"}`;
+      status.textContent = `Shared save failed: ${sharedStorageError}`;
     }
 
     return false;
@@ -1342,7 +1364,7 @@ function unlockEditor() {
   if (status) {
     status.textContent = sharedStorageAvailable
       ? "Firestore autosave ready"
-      : "Browser autosave ready";
+      : sharedStorageError || "Firestore will retry when you edit";
   }
 }
 
@@ -1373,7 +1395,7 @@ function bindEditorShell() {
       status.textContent = "";
       unlockEditor();
 
-      if (sharedStorageAvailable && localStorage.getItem(STORAGE_KEY)) {
+      if (localStorage.getItem(STORAGE_KEY)) {
         const saveStatus = qs("#save-status");
         if (saveStatus) saveStatus.textContent = "Publishing browser edits...";
         await saveProfileToFirestore();
